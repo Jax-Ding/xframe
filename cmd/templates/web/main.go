@@ -2,9 +2,13 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"net"
 	"xframe/cmd"
+	"xframe/cmd/templates/web/handler"
 	"xframe/config"
 	"xframe/log"
+	"xframe/metric"
 	"xframe/server"
 )
 
@@ -25,6 +29,22 @@ func main() {
 		panic(err)
 	}
 	config.DumpConfigContent()
+	pprofAddr, _ := config.GetConfigByKey("server.pprofAddr")
+	pprofPort, _ := config.GetConfigByKey("server.pprofPort")
+
+	go func() {
+		pprof := fmt.Sprintf("%s:%d", pprofAddr, pprofPort)
+		log.INFOF("start to initialize metric at %s", pprof)
+		metric.InitPprof(pprof)
+	}()
+
+	prometheusNet, _ := config.GetConfigByKey("metric.prometheusNetType")
+	prometheusAddr, _ := config.GetConfigByKey("metric.prometheusAddr")
+	if l, err := net.Listen(prometheusNet.(string), prometheusAddr.(string)); err != nil {
+		panic(err)
+	} else {
+		metric.ServePrometheus(l)
+	}
 
 	addr, _ := config.GetConfigByKey("server.ip")
 	port, _ := config.GetConfigByKey("server.port")
